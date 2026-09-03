@@ -1,114 +1,99 @@
-<h1 align="center">
-  <img style="vertical-align:middle" height="200"
-  src="https://raw.githubusercontent.com/vibrantlabsai/ragas/main/docs/_static/imgs/logo.png">
-</h1>
+# ⚙️ EvalCore
+
 <p align="center">
-  <i>Supercharge Your LLM Application Evaluations 🚀</i>
+  <strong>Measure the intelligence. Improve the outcome.</strong>
 </p>
 
 <p align="center">
-    <a href="https://github.com/vibrantlabsai/ragas/releases">
-        <img alt="Latest release" src="https://img.shields.io/github/release/vibrantlabsai/ragas.svg">
-    </a>
-    <a href="https://www.python.org/">
-        <img alt="Made with Python" src="https://img.shields.io/badge/Made%20with-Python-1f425f.svg?color=purple">
-    </a>
-    <a href="https://github.com/vibrantlabsai/ragas/blob/master/LICENSE">
-        <img alt="License Apache-2.0" src="https://img.shields.io/github/license/vibrantlabsai/ragas.svg?color=green">
-    </a>
-    <a href="https://pypi.org/project/ragas/">
-        <img alt="Ragas Downloads per month" src="https://static.pepy.tech/badge/ragas/month">
-    </a>
-    <a href="https://discord.gg/5djav8GGNZ">
-        <img alt="Join Ragas community on Discord" src="https://img.shields.io/discord/1119637219561451644">
-    </a>
-    <a target="_blank" href="https://deepwiki.com/vibrantlabsai/ragas">
-      <img 
-        src="https://devin.ai/assets/deepwiki-badge.png" 
-        alt="Ask DeepWiki.com" 
-        height="20" 
-      />
-    </a>
+  An evaluation-first toolkit for building reliable LLM applications.
 </p>
 
-<h4 align="center">
-    <p>
-        <a href="https://docs.ragas.io/">Documentation</a> |
-        <a href="#fire-quickstart">Quick start</a> |
-        <a href="https://discord.gg/5djav8GGNZ">Join Discord</a> |
-        <a href="https://blog.ragas.io/">Blog</a> |
-        <a href="https://newsletter.ragas.io/">NewsLetter</a> |
-        <a href="https://www.ragas.io/careers">Careers</a>
-    <p>
-</h4>
+<p align="center">
+  <a href="https://github.com/ATLURI0001/EvalCore">GitHub</a> ·
+  <a href="https://docs.ragas.io/">Documentation</a> ·
+  <a href="https://discord.gg/5djav8GGNZ">Community</a>
+</p>
 
-Objective metrics, intelligent test generation, and data-driven insights for LLM apps
+---
 
-Ragas is your ultimate toolkit for evaluating and optimizing Large Language Model (LLM) applications. Say goodbye to time-consuming, subjective assessments and hello to data-driven, efficient evaluation workflows.
-Don't have a test dataset ready? We also do production-aligned test set generation.
+## What is EvalCore?
 
-## Key Features
+**EvalCore** is a developer-focused evaluation toolkit for LLM applications.
 
-- 🎯 Objective Metrics: Evaluate your LLM applications with precision using both LLM-based and traditional metrics.
-- 🧪 Test Data Generation: Automatically create comprehensive test datasets covering a wide range of scenarios.
-- 🔗 Seamless Integrations: Works flawlessly with popular LLM frameworks like LangChain and major observability tools.
-- 📊 Build feedback loops: Leverage production data to continually improve your LLM applications.
+It helps you move beyond *“the model seems to work”* toward measurable answers:
 
-## :shield: Installation
+* Is the response accurate?
+* Is the retrieved context relevant?
+* Does the answer stay grounded in the available information?
+* How does a new model or prompt compare with the previous one?
+* Where does the application need improvement?
 
-Pypi:
+Instead of treating evaluation as a final inspection, EvalCore makes it part of the engineering workflow.
 
-```bash
-pip install ragas
+> **Build the application. Measure its behavior. Improve what matters.**
+
+## Why evaluation matters
+
+LLM applications can produce convincing answers without consistently producing correct ones.
+
+A useful evaluation workflow turns that uncertainty into evidence:
+
+```text
+LLM Application
+       │
+       ▼
+   Test Dataset
+       │
+       ▼
+    Evaluation
+       │
+       ▼
+  Quality Signals
+       │
+       ▼
+  Engineering Decisions
+       │
+       └──────────────► Continuous Improvement
 ```
 
-Alternatively, from source:
+EvalCore is built around this feedback loop.
+
+## Core capabilities
+
+| Capability                    | Purpose                                                                     |
+| ----------------------------- | --------------------------------------------------------------------------- |
+| 🎯 **Objective metrics**      | Evaluate application outputs using measurable quality signals.              |
+| 🧪 **Test generation**        | Create evaluation datasets for different scenarios and use cases.           |
+| 🔍 **Quality analysis**       | Identify weaknesses in retrieval, generation, and overall responses.        |
+| 🔗 **Framework integrations** | Connect evaluation workflows with the tools used to build LLM applications. |
+| 📊 **Feedback loops**         | Use evaluation results to guide continuous improvement.                     |
+
+## Installation
 
 ```bash
-pip install git+https://github.com/vibrantlabsai/ragas
+pip install evalcore
 ```
 
-## :fire: Quickstart
+> **Note:** Replace the package name above with the actual published package name when you release the project.
 
-### Clone a Complete Example Project
+## Quick start
 
-The fastest way to get started is to use the `ragas quickstart` command:
-
-```bash
-# List available templates
-ragas quickstart
-
-# Create a RAG evaluation project
-ragas quickstart rag_eval
-
-# Specify where you want to create it.
-ragas quickstart rag_eval -o ./my-project
-```
-
-Available templates:
-- `rag_eval` - Evaluate RAG systems
-
-Coming Soon:
-- `agent_evals` - Evaluate AI agents
-- `benchmark_llm` - Benchmark and compare LLMs
-- `prompt_evals` - Evaluate prompt variations
-- `workflow_eval` - Evaluate complex workflows
-
-### Evaluate your LLM App
-
-`ragas` comes with pre-built metrics for common evaluation tasks. For example, Aspect Critique evaluates any aspect of your output using `DiscreteMetric`:
+The following example demonstrates the evaluation-first workflow:
 
 ```python
 import asyncio
+
 from openai import AsyncOpenAI
 from ragas.metrics import DiscreteMetric
 from ragas.llms import llm_factory
 
-# Setup your LLM
+
+# Configure the evaluation model
 client = AsyncOpenAI()
 llm = llm_factory("gpt-4o", client=client)
 
-# Create a custom aspect evaluator
+
+# Define what you want to measure
 metric = DiscreteMetric(
     name="summary_accuracy",
     allowed_values=["accurate", "inaccurate"],
@@ -119,13 +104,15 @@ Response: {response}
 Answer with only 'accurate' or 'inaccurate'."""
 )
 
-# Score your application's output
+
+# Evaluate an application output
 async def main():
     score = await metric.ascore(
         llm=llm,
         response="The summary of the text is..."
     )
-    print(f"Score: {score.value}")  # 'accurate' or 'inaccurate'
+
+    print(f"Score: {score.value}")
     print(f"Reason: {score.reason}")
 
 
@@ -133,62 +120,87 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-> **Note**: Make sure your `OPENAI_API_KEY` environment variable is set.
+## Evaluation workflow
 
-Find the complete [Quickstart Guide](https://docs.ragas.io/en/latest/getstarted/quickstart)
+A typical EvalCore project follows a simple progression:
 
-## Want help in improving your AI application using evals?
+### 1. Define the quality signal
 
-In the past 2 years, we have seen and helped improve many AI applications using evals. If you want help with improving and scaling up your AI application using evals.
+Decide what matters for your application:
 
-🔗 Book a [slot](https://cal.com/team/vibrantlabs/app) or drop us a line: [founders@vibrantlabs.com](mailto:founders@vibrantlabs.com).
+* Accuracy
+* Relevance
+* Faithfulness
+* Completeness
+* Response quality
+* Custom domain-specific criteria
 
-## 🫂 Community
+### 2. Prepare evaluation data
 
-If you want to get more involved with Ragas, check out our [discord server](https://discord.gg/5qGUJ6mh7C). It's a fun community where we geek out about LLM, Retrieval, Production issues, and more.
+Use representative examples from your application, including the cases where quality matters most.
 
-## Contributors
+### 3. Run evaluations
 
-```yml
-+----------------------------------------------------------------------------+
-|     +----------------------------------------------------------------+     |
-|     | Developers: Those who built with `ragas`.                      |     |
-|     | (You have `import ragas` somewhere in your project)            |     |
-|     |     +----------------------------------------------------+     |     |
-|     |     | Contributors: Those who make `ragas` better.       |     |     |
-|     |     | (You make PR to this repo)                         |     |     |
-|     |     +----------------------------------------------------+     |     |
-|     +----------------------------------------------------------------+     |
-+----------------------------------------------------------------------------+
+Apply metrics to your application outputs and collect structured results.
+
+### 4. Inspect the results
+
+Look for patterns, failure cases, and changes in performance.
+
+### 5. Improve and repeat
+
+Update your prompts, retrieval strategy, models, or application logic, then evaluate again.
+
+**The goal is not just a score. The goal is a better system.**
+
+## Project structure
+
+```text
+EvalCore/
+├── docs/                 # Documentation
+├── examples/             # Evaluation examples
+├── tests/                # Test suite
+├── src/                  # Core implementation
+├── pyproject.toml        # Project configuration
+└── README.md
 ```
 
-We welcome contributions from the community! Whether it's bug fixes, feature additions, or documentation improvements, your input is valuable.
+## Roadmap
 
-1. Fork the repository
-2. Create your feature branch (git checkout -b feature/AmazingFeature)
-3. Commit your changes (git commit -m 'Add some AmazingFeature')
-4. Push to the branch (git push origin feature/AmazingFeature)
-5. Open a Pull Request
+* [ ] Core evaluation metrics
+* [ ] RAG evaluation workflows
+* [ ] Test-data generation
+* [ ] Custom evaluation criteria
+* [ ] Experiment comparison
+* [ ] Production feedback workflows
+* [ ] Agent evaluation support
+* [ ] LLM benchmarking
+* [ ] Prompt evaluation
+* [ ] Workflow evaluation
 
-## 🔍 Open Analytics
+## Contributing
 
-At Ragas, we believe in transparency. We collect minimal, anonymized usage data to improve our product and guide our development efforts.
+Contributions are welcome.
 
-✅ No personal or company-identifying information
-
-✅ Open-source data collection [code](./src/ragas/_analytics.py)
-
-✅ Publicly available aggregated [data](https://github.com/vibrantlabsai/ragas/issues/49)
-
-To opt-out, set the `RAGAS_DO_NOT_TRACK` environment variable to `true`.
-
-### Cite Us
-
+```bash
+git clone https://github.com/ATLURI0001/EvalCore.git
+cd EvalCore
 ```
-@misc{ragas2024,
-  author       = {VibrantLabs},
-  title        = {Ragas: Supercharge Your LLM Application Evaluations},
-  year         = {2024},
-  howpublished = {\url{https://github.com/vibrantlabsai/ragas}},
-}
+
+Create a feature branch, make your changes, and open a pull request.
+
+```bash
+git checkout -b feature/your-feature
+git commit -m "your meaningful commit message"
+git push origin feature/your-feature
 ```
+
+## License
+
+This project is licensed under the **Apache License 2.0**.
+
+---
+
+<p align="center">
+  <strong>⚙️ Build with confidence. Evaluate with evidence.</strong>
+</p>
