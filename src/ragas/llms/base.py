@@ -9,8 +9,15 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
 import instructor
-from langchain_community.chat_models.vertexai import ChatVertexAI
-from langchain_community.llms import VertexAI
+try:
+    from langchain_google_vertexai import ChatVertexAI, VertexAI
+except ImportError:
+    try:
+        from langchain_community.chat_models.vertexai import ChatVertexAI
+        from langchain_community.llms import VertexAI
+    except (ImportError, AttributeError):
+        ChatVertexAI = None  # type: ignore
+        VertexAI = None  # type: ignore
 from langchain_core.language_models import BaseLanguageModel
 from langchain_core.outputs import ChatGeneration, Generation, LLMResult
 from langchain_openai.chat_models import AzureChatOpenAI, ChatOpenAI
@@ -35,22 +42,23 @@ logger = logging.getLogger(__name__)
 # TypeVar for Instructor LLM response models
 InstructorTypeVar = t.TypeVar("T", bound=BaseModel)  # type: ignore
 
-MULTIPLE_COMPLETION_SUPPORTED = [
-    OpenAI,
-    ChatOpenAI,
-    AzureOpenAI,
-    AzureChatOpenAI,
-    ChatVertexAI,
-    VertexAI,
-]
+MULTIPLE_COMPLETION_SUPPORTED = tuple(
+    cls
+    for cls in [
+        OpenAI,
+        ChatOpenAI,
+        AzureOpenAI,
+        AzureChatOpenAI,
+        ChatVertexAI,
+        VertexAI,
+    ]
+    if cls is not None
+)
 
 
 def is_multiple_completion_supported(llm: BaseLanguageModel) -> bool:
     """Return whether the given LLM supports n-completion."""
-    for llm_type in MULTIPLE_COMPLETION_SUPPORTED:
-        if isinstance(llm, llm_type):
-            return True
-    return False
+    return isinstance(llm, MULTIPLE_COMPLETION_SUPPORTED)
 
 
 @dataclass
