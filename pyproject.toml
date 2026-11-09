@@ -79,6 +79,7 @@ dev-minimal = [
 # Test only dependencies
 test = [
     "scipy",
+    "pytz",
 ]
 
 [project.entry-points."ragas.backends"]
