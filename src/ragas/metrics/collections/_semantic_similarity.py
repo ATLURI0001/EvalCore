@@ -6,6 +6,7 @@ import numpy as np
 
 from ragas.metrics.collections.base import BaseMetric
 from ragas.metrics.result import MetricResult
+from ragas.metrics.utils import normalize_similarity_text, safe_cosine_similarity
 
 if t.TYPE_CHECKING:
     from ragas.embeddings.base import BaseRagasEmbedding
@@ -79,21 +80,15 @@ class SemanticSimilarity(BaseMetric):
         Returns:
             MetricResult with similarity score (0.0-1.0)
         """
-        reference = reference or " "
-        response = response or " "
+        reference = normalize_similarity_text(reference)
+        response = normalize_similarity_text(response)
 
         embedding_1 = np.array(self.embeddings.embed_text(reference))
         embedding_2 = np.array(self.embeddings.embed_text(response))
 
-        norms_1 = np.linalg.norm(embedding_1, keepdims=True)
-        norms_2 = np.linalg.norm(embedding_2, keepdims=True)
-        embedding_1_normalized = embedding_1 / norms_1
-        embedding_2_normalized = embedding_2 / norms_2
-        similarity = embedding_1_normalized @ embedding_2_normalized.T
-        score = similarity.flatten()
+        similarity_score = safe_cosine_similarity(embedding_1, embedding_2)
 
-        assert isinstance(score, np.ndarray), "Expects ndarray"
-        if self.threshold:
-            score = score >= self.threshold
+        if self.threshold is not None:
+            similarity_score = float(similarity_score >= self.threshold)
 
-        return MetricResult(value=float(score.item()))
+        return MetricResult(value=float(similarity_score))

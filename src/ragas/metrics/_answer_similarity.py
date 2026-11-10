@@ -14,6 +14,7 @@ from ragas.metrics.base import (
     MetricWithEmbeddings,
     SingleTurnMetric,
 )
+from ragas.metrics.utils import normalize_similarity_text, safe_cosine_similarity
 
 if t.TYPE_CHECKING:
     from langchain_core.callbacks.base import Callbacks
@@ -69,12 +70,10 @@ class SemanticSimilarity(MetricWithEmbeddings, SingleTurnMetric):
             f"Error: '{self.name}' requires embeddings to be set."
         )
 
-        ground_truth = t.cast(str, row["reference"])
-        answer = t.cast(str, row["response"])
-
-        # Handle embeddings for empty strings
-        ground_truth = ground_truth or " "
-        answer = answer or " "
+        ground_truth = normalize_similarity_text(
+            t.cast(t.Optional[str], row.get("reference"))
+        )
+        answer = normalize_similarity_text(t.cast(t.Optional[str], row.get("response")))
 
         if self.is_cross_encoder and isinstance(self.embeddings, HuggingfaceEmbeddings):
             raise NotImplementedError(
@@ -90,19 +89,12 @@ class SemanticSimilarity(MetricWithEmbeddings, SingleTurnMetric):
                 # Legacy interface (BaseRagasEmbeddings)
                 embedding_1 = np.array(await self.embeddings.embed_text(ground_truth))  # type: ignore[misc]
                 embedding_2 = np.array(await self.embeddings.embed_text(answer))  # type: ignore[misc]
-            # Normalization factors of the above embeddings
-            norms_1 = np.linalg.norm(embedding_1, keepdims=True)
-            norms_2 = np.linalg.norm(embedding_2, keepdims=True)
-            embedding_1_normalized = embedding_1 / norms_1
-            embedding_2_normalized = embedding_2 / norms_2
-            similarity = embedding_1_normalized @ embedding_2_normalized.T
-            score = similarity.flatten()
+            similarity_score = safe_cosine_similarity(embedding_1, embedding_2)
 
-        assert isinstance(score, np.ndarray), "Expects ndarray"
-        if self.threshold:
-            score = score >= self.threshold
+        if self.threshold is not None:
+            similarity_score = float(similarity_score >= self.threshold)
 
-        return float(score.item())
+        return float(similarity_score)
 
 
 @dataclass
