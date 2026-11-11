@@ -217,6 +217,8 @@ class RagasDataset(ABC, t.Generic[Sample]):
 
     def get_sample_type(self) -> t.Type[Sample]:
         """Returns the type of the samples in the dataset."""
+        if not self.samples:
+            return t.cast(t.Type[Sample], SingleTurnSample)
         return type(self.samples[0])
 
     def to_hf_dataset(self) -> HFDataset:
@@ -254,14 +256,18 @@ class RagasDataset(ABC, t.Generic[Sample]):
 
     def features(self):
         """Returns the features of the samples."""
+        if not self.samples:
+            return []
         return self.samples[0].get_features()
 
     @classmethod
-    def from_dict(cls: t.Type[T], mapping: t.Dict) -> T:
-        """Creates an EvaluationDataset from a dictionary."""
+    def from_dict(cls: t.Type[T], mapping: t.List[t.Dict]) -> T:
+        """Creates an EvaluationDataset from a list of sample dictionaries."""
+        if not mapping:
+            return cls(samples=[])
         samples = []
         if all(
-            "user_input" in item and isinstance(mapping[0]["user_input"], list)
+            isinstance(item, dict) and isinstance(item.get("user_input"), list)
             for item in mapping
         ):
             samples.extend(MultiTurnSample(**sample) for sample in mapping)
@@ -279,7 +285,7 @@ class RagasDataset(ABC, t.Generic[Sample]):
 
         fieldnames = data[0].keys()
 
-        with open(path, "w", newline="") as csvfile:
+        with open(path, "w", newline="", encoding="utf-8") as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             for row in data:
@@ -287,15 +293,15 @@ class RagasDataset(ABC, t.Generic[Sample]):
 
     def to_jsonl(self, path: t.Union[str, Path]):
         """Converts the dataset to a JSONL file."""
-        with open(path, "w") as jsonlfile:
+        with open(path, "w", encoding="utf-8") as jsonlfile:
             for sample in self.to_list():
                 jsonlfile.write(json.dumps(sample, ensure_ascii=False) + "\n")
 
     @classmethod
     def from_jsonl(cls: t.Type[T], path: t.Union[str, Path]) -> T:
         """Creates an EvaluationDataset from a JSONL file."""
-        with open(path, "r") as jsonlfile:
-            data = [json.loads(line) for line in jsonlfile]
+        with open(path, "r", encoding="utf-8") as jsonlfile:
+            data = [json.loads(line) for line in jsonlfile if line.strip()]
         return cls.from_list(data)
 
     def __iter__(self) -> t.Iterator[Sample]:  # type: ignore
@@ -372,12 +378,14 @@ class EvaluationDataset(RagasDataset[SingleTurnSampleOrMultiTurnSample]):
             raise TypeError("Index must be int or slice")
 
     def is_multi_turn(self) -> bool:
+        if not self.samples:
+            return False
         return self.get_sample_type() == MultiTurnSample
 
     def to_list(self) -> t.List[t.Dict]:
         rows = [sample.to_dict() for sample in self.samples]
 
-        if self.get_sample_type() == MultiTurnSample:
+        if self.samples and self.get_sample_type() == MultiTurnSample:
             for sample in rows:
                 for item in sample["user_input"]:
                     if not isinstance(item["content"], str):
@@ -394,9 +402,11 @@ class EvaluationDataset(RagasDataset[SingleTurnSampleOrMultiTurnSample]):
         backend: t.Optional[str] = None,
         name: t.Optional[str] = None,
     ) -> EvaluationDataset:
+        if not data:
+            return cls(samples=[], backend=backend, name=name)
         samples = []
         if all(
-            "user_input" in item and isinstance(data[0]["user_input"], list)
+            isinstance(item, dict) and isinstance(item.get("user_input"), list)
             for item in data
         ):
             samples.extend(MultiTurnSample(**sample) for sample in data)
@@ -435,6 +445,12 @@ class EvaluationResult:
 
     def __post_init__(self):
         # transform scores from list of dicts to dict of lists
+        if not self.scores:
+            self._scores_dict = {}
+            self._repr_dict = {}
+            run_id = str(self.run_id) if self.run_id is not None else None
+            self.traces = parse_run_traces(self.ragas_traces, run_id)
+            return
         self._scores_dict = {
             k: [d[k] for d in self.scores] for k in self.scores[0].keys()
         }

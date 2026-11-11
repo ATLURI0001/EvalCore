@@ -141,6 +141,8 @@ def parse_run_traces(
         if chain_trace.parent_run_id == parent_run_id
     ]
 
+    if not root_traces:
+        return []
     if len(root_traces) > 1:
         raise ValueError(
             "Multiple root traces found! This is a bug on our end, please file an issue and we will fix it ASAP :)"
