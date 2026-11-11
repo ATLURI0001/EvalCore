@@ -224,3 +224,31 @@ def test_multiturn_sample_validate_user_input_valid_types():
     assert len(sample.user_input) == 2
     assert isinstance(sample.user_input[0], HumanMessage)
     assert isinstance(sample.user_input[1], AIMessage)
+
+
+def test_empty_dataset_and_per_item_type_checks(tmp_path):
+    from ragas.dataset_schema import EvaluationDataset, EvaluationResult
+
+    empty = EvaluationDataset.from_list([])
+    assert len(empty) == 0
+    assert empty.features() == []
+    assert empty.is_multi_turn() is False
+    assert "len=0" in repr(empty)
+
+    # Empty scores list in EvaluationResult must not raise IndexError
+    empty_res = EvaluationResult(scores=[], dataset=empty)
+    assert repr(empty_res) == "{}"
+
+    # Per-item mixed dict classification fallback to SingleTurnSample vs MultiTurnSample
+    single_list = [{"user_input": "hello", "response": "world"}]
+    ds_single = EvaluationDataset.from_dict(single_list)
+    assert ds_single.is_multi_turn() is False
+
+    # UTF-8 JSONL roundtrip works on Windows locales
+    jsonl_file = tmp_path / "utf8_samples.jsonl"
+    ds_utf8 = EvaluationDataset.from_list(
+        [{"user_input": "What is α + β?", "response": "42 — verified ✅"}]
+    )
+    ds_utf8.to_jsonl(jsonl_file)
+    reloaded = EvaluationDataset.from_jsonl(jsonl_file)
+    assert reloaded[0].response == "42 — verified ✅"
