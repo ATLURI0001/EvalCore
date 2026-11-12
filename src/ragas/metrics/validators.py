@@ -9,6 +9,7 @@ __all__ = [
     "get_metric_type_name",
 ]
 
+import math
 import typing as t
 from abc import ABC
 
@@ -60,15 +61,19 @@ class NumericValidator(BaseValidator):
         if not isinstance(self.allowed_values, (tuple, range)):
             return None  # Not a numeric metric
 
-        if not isinstance(result_value, (int, float)):
+        if isinstance(result_value, bool) or not isinstance(result_value, (int, float)):
             return f"Metric {self.name} returned '{result_value}' but expected a numeric value"
+        if isinstance(result_value, float) and not math.isfinite(result_value):
+            return f"Metric {self.name} returned non-finite value '{result_value}'"
 
         if isinstance(self.allowed_values, tuple):
             min_val, max_val = self.allowed_values
             if not (min_val <= result_value <= max_val):
                 return f"Metric {self.name} returned {result_value} but expected value in range {self.allowed_values}"
         elif isinstance(self.allowed_values, range):
-            if result_value not in self.allowed_values:
+            if isinstance(result_value, float) and not result_value.is_integer():
+                return f"Metric {self.name} returned {result_value} but expected integer in range {self.allowed_values}"
+            if int(result_value) not in self.allowed_values:
                 return f"Metric {self.name} returned {result_value} but expected value in range {self.allowed_values}"
         return None
 
@@ -80,7 +85,7 @@ class RankingValidator(BaseValidator):
 
     def validate_result_value(self, result_value: t.Any) -> t.Optional[str]:
         """Validate that result value is a list with expected length."""
-        if not isinstance(self.allowed_values, int):
+        if isinstance(self.allowed_values, bool) or not isinstance(self.allowed_values, int):
             return None  # Not a ranking metric
 
         if not isinstance(result_value, list):
@@ -106,7 +111,7 @@ def get_validator_for_allowed_values(
         return DiscreteValidator
     elif isinstance(allowed_values, (tuple, range)):
         return NumericValidator
-    elif isinstance(allowed_values, int):
+    elif isinstance(allowed_values, int) and not isinstance(allowed_values, bool):
         return RankingValidator
     else:
         # Default to discrete if unclear
@@ -119,7 +124,7 @@ def get_metric_type_name(allowed_values: AllowedValuesType) -> str:
         return "DiscreteMetric"
     elif isinstance(allowed_values, (tuple, range)):
         return "NumericMetric"
-    elif isinstance(allowed_values, int):
+    elif isinstance(allowed_values, int) and not isinstance(allowed_values, bool):
         return "RankingMetric"
     else:
         return "CustomMetric"
