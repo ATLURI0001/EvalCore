@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import itertools
 import logging
+import math
 import os
 import random
 import re
@@ -43,13 +44,19 @@ def get_debug_mode() -> bool:
         return False
 
 
-def safe_nanmean(arr: t.List[float]) -> float:
+def safe_nanmean(arr: t.Sequence[float]) -> float:
     if len(arr) == 0:
         return np.nan  # or some other value or behavior for empty arrays
 
-    arr_numpy = np.asarray(arr)  # Ensure input is a numpy array
+    try:
+        # Reject booleans to avoid boolean coercion to 0.0/1.0
+        if any(isinstance(x, bool) for x in arr):
+            return np.nan
+        arr_numpy = np.asarray(arr, dtype=float).ravel()
+    except (TypeError, ValueError):
+        return np.nan
 
-    if np.isnan(arr_numpy).all():
+    if arr_numpy.size == 0 or np.isnan(arr_numpy).all():
         return np.nan  # or some other value or behavior for all-NaN arrays
 
     return float(np.nanmean(arr_numpy))
@@ -58,8 +65,16 @@ def safe_nanmean(arr: t.List[float]) -> float:
 def check_if_sum_is_close(
     values: t.List[float], close_to: float, num_places: int
 ) -> bool:
+    if isinstance(num_places, bool) or not isinstance(num_places, int) or num_places < 0:
+        raise ValueError(f"num_places must be a non-negative integer, got {num_places!r}")
+    if not math.isfinite(close_to):
+        return False
     multiplier = 10**num_places
-    total = sum(int(round(v * multiplier)) for v in values)
+    total = 0
+    for v in values:
+        if isinstance(v, bool) or not math.isfinite(v):
+            return False
+        total += int(round(v * multiplier))
     return total == int(round(close_to * multiplier))
 
 
