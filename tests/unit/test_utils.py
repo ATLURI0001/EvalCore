@@ -11,6 +11,7 @@ from ragas.utils import (
     create_nano_id,
     get_from_dict,
     get_test_directory,
+    safe_nanmean,
 )
 
 
@@ -26,6 +27,29 @@ from ragas.utils import (
 )
 def test_check_if_sum_is_close(values, close_to, num_places):
     assert check_if_sum_is_close(values, close_to, num_places)
+
+
+def test_check_if_sum_is_close_nan_and_infinities():
+    import math
+    import numpy as np
+
+    assert not check_if_sum_is_close([0.1, float("nan")], 0.6, 1)
+    assert not check_if_sum_is_close([0.1, float("inf")], 0.6, 1)
+    assert not check_if_sum_is_close([0.1, True], 0.6, 1)
+    assert not check_if_sum_is_close([0.1, 0.5], float("nan"), 1)
+
+    with pytest.raises(ValueError):
+        check_if_sum_is_close([0.1, 0.2], 0.3, -1)
+
+
+def test_safe_nanmean_handles_empty_nans_and_invalid_types():
+    import numpy as np
+
+    assert np.isnan(safe_nanmean([]))
+    assert np.isnan(safe_nanmean([float("nan"), float("nan")]))
+    assert np.isnan(safe_nanmean([True, False]))
+    assert np.isnan(safe_nanmean(["invalid", "strings"]))
+    assert safe_nanmean([1.0, 2.0, float("nan"), 3.0]) == 2.0
 
 
 data_dict = {
