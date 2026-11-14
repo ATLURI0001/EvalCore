@@ -99,9 +99,13 @@ def test_get_from_dict(data_dict, key, expected):
     ],
 )
 def test_camel_to_snake(camel_case_string, expected):
-    from ragas.utils import camel_to_snake
+    from ragas.utils import camel_to_snake, num_tokens_from_string
 
     assert camel_to_snake(camel_case_string) == expected
+    assert camel_to_snake("") == ""
+    assert num_tokens_from_string("") == 0
+    with pytest.raises(TypeError):
+        camel_to_snake(12345)
 
 
 class TestBatched:
@@ -121,9 +125,13 @@ class TestBatched:
         assert result == expected, f"Expected {expected}, but got {result}"
 
     def test_batched_invalid_n(self):
-        """Test that `batched` raises ValueError if n < 1."""
+        """Test that `batched` raises ValueError if n < 1 or is a boolean/invalid type."""
         with pytest.raises(ValueError, match="n must be at least one"):
             list(batched("ABCDEFG", 0))  # n = 0 should raise ValueError
+        with pytest.raises(ValueError, match="n must be at least one"):
+            list(batched("ABCDEFG", True))  # booleans rejected
+        with pytest.raises(ValueError, match="n must be at least one"):
+            list(batched("ABCDEFG", "3"))  # non-integer string rejected
 
     @pytest.mark.parametrize(
         "iterable, n, expected_type",

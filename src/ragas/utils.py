@@ -257,11 +257,15 @@ def convert_v2_to_v1_dataset(dataset: Dataset) -> Dataset:
     return dataset.rename_columns(columns_map)
 
 
-def camel_to_snake(name):
+def camel_to_snake(name: str) -> str:
     """
     Convert a camelCase string to snake_case.
     eg: HaiThere -> hai_there
     """
+    if not isinstance(name, str):
+        raise TypeError(f"name must be a string, got {type(name).__name__}")
+    if not name:
+        return ""
     pattern = re.compile(r"(?<!^)(?=[A-Z])")
     return pattern.sub("_", name).lower()
 
@@ -287,6 +291,8 @@ def num_tokens_from_string(
     int
         Number of tokens in the string.
     """
+    if not string:
+        return 0
     if tokenizer is not None:
         return tokenizer.count_tokens(string)
     encoding = tiktoken.get_encoding(encoding_name)
@@ -297,8 +303,8 @@ def num_tokens_from_string(
 def batched(iterable: t.Iterable, n: int) -> t.Iterator[t.Tuple]:
     """Batch data from the iterable into tuples of length n. The last batch may be shorter than n."""
     # batched('ABCDEFG', 3) → ABC DEF G
-    if n < 1:
-        raise ValueError("n must be at least one")
+    if isinstance(n, bool) or not isinstance(n, int) or n < 1:
+        raise ValueError("n must be at least one and an integer")
     iterator = iter(iterable)
     while batch := tuple(itertools.islice(iterator, n)):
         yield batch
