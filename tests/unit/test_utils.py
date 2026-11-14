@@ -11,6 +11,7 @@ from ragas.utils import (
     create_nano_id,
     get_from_dict,
     get_test_directory,
+    is_nan,
     safe_nanmean,
 )
 
@@ -50,6 +51,21 @@ def test_safe_nanmean_handles_empty_nans_and_invalid_types():
     assert np.isnan(safe_nanmean([True, False]))
     assert np.isnan(safe_nanmean(["invalid", "strings"]))
     assert safe_nanmean([1.0, 2.0, float("nan"), 3.0]) == 2.0
+
+
+def test_is_nan_resilience():
+    import numpy as np
+
+    assert is_nan(float("nan")) is True
+    assert is_nan(np.nan) is True
+    assert is_nan(0.0) is False
+    assert is_nan(100) is False
+    assert is_nan(True) is False
+    assert is_nan(False) is False
+    assert is_nan(None) is False
+    assert is_nan("not a number") is False
+    assert is_nan([1, 2]) is False
+    assert is_nan(np.array([1, 2])) is False
 
 
 data_dict = {
@@ -153,6 +169,20 @@ class TestCreateNanoId:
         nano_id = create_nano_id(size=50)  # Larger size for better coverage
         for char in nano_id:
             assert char.isalnum(), f"Non-alphanumeric character found: {char}"
+
+    def test_create_nano_id_exact_length_guarantee(self):
+        """Test that create_nano_id guarantees exact requested length even for sizes > 22."""
+        for size in [1, 5, 12, 22, 25, 32, 64]:
+            nid = create_nano_id(size=size)
+            assert len(nid) == size
+            assert nid.isalnum()
+
+    def test_create_nano_id_invalid_size_raises(self):
+        """Test that invalid sizes raise ValueError."""
+        import pytest
+        for invalid in [0, -1, -10, True, False, "12"]:
+            with pytest.raises(ValueError):
+                create_nano_id(size=invalid)
 
 
 class TestAsyncToSync:

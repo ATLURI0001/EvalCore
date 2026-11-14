@@ -95,10 +95,13 @@ def patch_logger(module: str, level: int):
 
 
 # Function to check if an element is NaN
-def is_nan(x):
+def is_nan(x: t.Any) -> bool:
+    if isinstance(x, bool) or x is None:
+        return False
     try:
-        return np.isnan(x)
-    except TypeError:
+        val = float(x)
+        return math.isnan(val)
+    except (TypeError, ValueError):
         return False
 
 
@@ -658,19 +661,19 @@ def find_git_root(start_path: t.Union[str, Path, None] = None) -> Path:
 
 def create_nano_id(size: int = 12) -> str:
     """Generate a short unique identifier."""
+    if isinstance(size, bool) or not isinstance(size, int) or size <= 0:
+        raise ValueError(f"size must be a positive integer, got {size!r}")
+
     # Define characters to use (alphanumeric)
     alphabet = string.ascii_letters + string.digits
 
-    # Generate UUID and convert to int
-    uuid_int = t.cast(int, uuid.uuid4().int)
-
-    # Convert to base62
     result = ""
-    while uuid_int:
-        uuid_int, remainder = divmod(uuid_int, len(alphabet))
-        result = alphabet[remainder] + result
+    while len(result) < size:
+        uuid_int = t.cast(int, uuid.uuid4().int)
+        while uuid_int:
+            uuid_int, remainder = divmod(uuid_int, len(alphabet))
+            result += alphabet[remainder]
 
-    # Pad if necessary and return desired length
     return result[:size]
 
 
