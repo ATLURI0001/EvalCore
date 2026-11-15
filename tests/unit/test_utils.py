@@ -8,8 +8,12 @@ from ragas.utils import (
     async_to_sync,
     batched,
     check_if_sum_is_close,
+    convert_row_v1_to_v2,
+    convert_row_v2_to_v1,
     create_nano_id,
     get_from_dict,
+    get_or_init,
+    get_required_columns_v1,
     get_test_directory,
     is_nan,
     safe_nanmean,
@@ -306,3 +310,57 @@ class TestGetTestDirectory:
         with open(test_file, "r") as f:
             content = f.read()
         assert content == "test content"
+
+
+class TestRowConversionAndGetOrInit:
+    """Test cases for row schema conversion and get_or_init helpers."""
+
+    def test_get_or_init_behavior_and_guards(self):
+        d = {"existing": 42}
+        assert get_or_init(d, "existing", lambda: 100) == 42
+        assert get_or_init(d, "missing", lambda: [1, 2, 3]) == [1, 2, 3]
+
+        with pytest.raises(TypeError, match="must be a dict"):
+            get_or_init(None, "k", lambda: 1)
+
+        with pytest.raises(TypeError, match="must be a callable"):
+            get_or_init({}, "k", 123)
+
+    def test_convert_row_v1_to_v2(self):
+        v1_row = {
+            "question": "What is RAG?",
+            "contexts": ["RAG is retrieval augmented generation."],
+            "answer": "RAG enhances LLMs with external data.",
+            "ground_truth": "Retrieval Augmented Generation.",
+            "extra_field": "preserved or ignored",
+        }
+        v2_row = convert_row_v1_to_v2(v1_row)
+        assert v2_row["user_input"] == "What is RAG?"
+        assert v2_row["retrieved_contexts"] == ["RAG is retrieval augmented generation."]
+        assert v2_row["response"] == "RAG enhances LLMs with external data."
+        assert v2_row["reference"] == "Retrieval Augmented Generation."
+        assert "extra_field" not in v2_row
+
+        with pytest.raises(TypeError, match="row must be a dict"):
+            convert_row_v1_to_v2("not a dict")
+
+    def test_convert_row_v2_to_v1(self):
+        v2_row = {
+            "user_input": "What is RAG?",
+            "retrieved_contexts": ["RAG is retrieval augmented generation."],
+            "response": "RAG enhances LLMs with external data.",
+            "reference": "Retrieval Augmented Generation.",
+        }
+        v1_row = convert_row_v2_to_v1(v2_row)
+        assert v1_row["question"] == "What is RAG?"
+        assert v1_row["contexts"] == ["RAG is retrieval augmented generation."]
+        assert v1_row["answer"] == "RAG enhances LLMs with external data."
+        assert v1_row["ground_truth"] == "Retrieval Augmented Generation."
+
+        with pytest.raises(TypeError, match="row must be a dict"):
+            convert_row_v2_to_v1(None)
+
+    def test_get_required_columns_v1_safe_fallback(self):
+        assert get_required_columns_v1(None) == []
+        assert get_required_columns_v1(object()) == []
+
