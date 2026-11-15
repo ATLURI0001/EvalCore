@@ -84,6 +84,12 @@ data_dict = {
         (data_dict, "other.key", "value"),
         (data_dict, "something.not_there_in_key", None),
         (data_dict, "something.nested.not_here", None),
+        ({"items": [{"name": "first"}, {"name": "second"}]}, "items.1.name", "second"),
+        ({"items": ["a", "b"]}, "items.5", None),
+        (None, "key", None),
+        ("not_a_dict", "key", None),
+        (data_dict, "", None),
+        (data_dict, None, None),
     ],
 )
 def test_get_from_dict(data_dict, key, expected):
@@ -191,6 +197,19 @@ class TestCreateNanoId:
         for invalid in [0, -1, -10, True, False, "12"]:
             with pytest.raises(ValueError):
                 create_nano_id(size=invalid)
+
+    def test_create_nano_id_custom_alphabet(self):
+        """Test that create_nano_id supports and validates custom alphabets."""
+        import pytest
+        custom = "0123456789ABCDEF"
+        nid = create_nano_id(size=16, alphabet=custom)
+        assert len(nid) == 16
+        assert all(c in custom for c in nid)
+
+        for invalid in ["", "a", "aaa", 123, None, []]:
+            if invalid is not None:
+                with pytest.raises(ValueError):
+                    create_nano_id(size=10, alphabet=invalid)
 
 
 class TestAsyncToSync:
