@@ -209,6 +209,10 @@ def deprecated(
 def get_or_init(
     dictionary: t.Dict[str, t.Any], key: str, default: t.Callable[[], t.Any]
 ) -> t.Any:
+    if not isinstance(dictionary, dict):
+        raise TypeError(f"dictionary must be a dict, got {type(dictionary).__name__}")
+    if not callable(default):
+        raise TypeError("default must be a callable factory function")
     _value = dictionary.get(key)
     value = _value if _value is not None else default()
 
@@ -248,14 +252,25 @@ REQUIRED_COLS_v1 = {
 
 
 def get_required_columns_v1(metric: Metric):
+    if metric is None or not hasattr(metric, "required_columns") or not isinstance(metric.required_columns, dict):
+        return []
     required_cols = metric.required_columns.get("SINGLE_TURN", set())
     required_cols = [REQUIRED_COLS_v1.get(col) for col in required_cols]
     return [col for col in required_cols if col is not None]
 
 
 def convert_row_v1_to_v2(row: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
+    if not isinstance(row, dict):
+        raise TypeError(f"row must be a dict, got {type(row).__name__}")
     required_cols_v2 = {k: v for v, k in REQUIRED_COLS_v1.items()}
     return {required_cols_v2[k]: v for k, v in row.items() if k in required_cols_v2}
+
+
+def convert_row_v2_to_v1(row: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
+    """Convert a single v2 evaluation row dictionary to v1 column names."""
+    if not isinstance(row, dict):
+        raise TypeError(f"row must be a dict, got {type(row).__name__}")
+    return {REQUIRED_COLS_v1[k]: v for k, v in row.items() if k in REQUIRED_COLS_v1}
 
 
 def convert_v1_to_v2_dataset(dataset: Dataset) -> Dataset:
