@@ -215,13 +215,24 @@ def get_or_init(
     return value
 
 
-def get_from_dict(data_dict: t.Dict, key: str, default=None) -> t.Any:
+def get_from_dict(data_dict: t.Any, key: str, default: t.Any = None) -> t.Any:
+    if not isinstance(key, str) or not key:
+        return default
+    if not isinstance(data_dict, (dict, list, tuple)):
+        return default
+
     keys = key.split(".")
     current = data_dict
 
     for k in keys:
         if isinstance(current, dict) and k in current:
             current = current[k]
+        elif isinstance(current, (list, tuple)) and k.isdigit():
+            idx = int(k)
+            if 0 <= idx < len(current):
+                current = current[idx]
+            else:
+                return default
         else:
             return default
 
@@ -665,20 +676,24 @@ def find_git_root(start_path: t.Union[str, Path, None] = None) -> Path:
     raise ValueError(f"No git repository found in or above {start_path}")
 
 
-def create_nano_id(size: int = 12) -> str:
+def create_nano_id(size: int = 12, alphabet: t.Optional[str] = None) -> str:
     """Generate a short unique identifier."""
     if isinstance(size, bool) or not isinstance(size, int) or size <= 0:
         raise ValueError(f"size must be a positive integer, got {size!r}")
 
-    # Define characters to use (alphanumeric)
-    alphabet = string.ascii_letters + string.digits
+    if alphabet is None:
+        alphabet_chars = string.ascii_letters + string.digits
+    else:
+        if not isinstance(alphabet, str) or len(set(alphabet)) < 2:
+            raise ValueError(f"alphabet must be a string containing at least 2 unique characters, got {alphabet!r}")
+        alphabet_chars = alphabet
 
     result = ""
     while len(result) < size:
         uuid_int = t.cast(int, uuid.uuid4().int)
         while uuid_int:
-            uuid_int, remainder = divmod(uuid_int, len(alphabet))
-            result += alphabet[remainder]
+            uuid_int, remainder = divmod(uuid_int, len(alphabet_chars))
+            result += alphabet_chars[remainder]
 
     return result[:size]
 
