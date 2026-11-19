@@ -10,6 +10,7 @@ import string
 import typing as t
 import uuid
 import warnings
+from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
@@ -749,3 +750,123 @@ def get_test_directory():
     os.makedirs(test_dir, exist_ok=True)
 
     return test_dir
+
+
+@dataclass(frozen=True)
+class DistributionDriftResult:
+    """Diagnostic evaluation result for continuous score distribution shift."""
+
+    ks_statistic: float
+    ks_p_value: float
+    wasserstein_distance: float
+    sample1_size: int
+    sample2_size: int
+    is_drift_detected: bool
+    alpha: float
+
+
+def _sanitize_numeric_sample(sample: t.Sequence[t.Any]) -> np.ndarray:
+    """Filter out booleans, non-finite values (NaN, Inf), None, and convert to 1D float array."""
+    if not isinstance(sample, (list, tuple, np.ndarray)):
+        raise TypeError(f"sample must be a sequence or numpy array, got {type(sample).__name__}")
+    cleaned = []
+    for item in sample:
+        if isinstance(item, bool) or item is None:
+            continue
+        try:
+            val = float(item)
+            if math.isfinite(val):
+                cleaned.append(val)
+        except (ValueError, TypeError):
+            continue
+    return np.asarray(cleaned, dtype=float)
+
+
+def compute_ks_2sample(
+    sample1: t.Sequence[t.Any],
+    sample2: t.Sequence[t.Any],
+) -> tuple[float, float]:
+    """Compute Kolmogorov-Smirnov 2-sample test statistic and asymptotic p-value."""
+    s1 = _sanitize_numeric_sample(sample1)
+    s2 = _sanitize_numeric_sample(sample2)
+    if s1.size == 0 or s2.size == 0:
+        raise ValueError("Cannot compute KS statistic on empty or non-finite sample.")
+
+    try:
+        from scipy.stats import ks_2samp
+
+        res = ks_2samp(s1, s2)
+        return float(res.statistic), float(res.pvalue)
+    except ImportError:
+        s1_sorted = np.sort(s1)
+        s2_sorted = np.sort(s2)
+        n1 = len(s1_sorted)
+        n2 = len(s2_sorted)
+        all_vals = np.concatenate([s1_sorted, s2_sorted])
+        cdf1 = np.searchsorted(s1_sorted, all_vals, side="right") / n1
+        cdf2 = np.searchsorted(s2_sorted, all_vals, side="right") / n2
+        d_stat = float(np.max(np.abs(cdf1 - cdf2)))
+
+        en = np.sqrt(n1 * n2 / (n1 + n2))
+        lam = (en + 0.12 + 0.11 / en) * d_stat
+        if lam <= 0:
+            pval = 1.0
+        else:
+            pval = 2.0 * sum(((-1) ** (k - 1)) * np.exp(-2.0 * (k**2) * (lam**2)) for k in range(1, 101))
+            pval = float(np.clip(pval, 0.0, 1.0))
+        return d_stat, pval
+
+
+def compute_wasserstein_1d(
+    sample1: t.Sequence[t.Any],
+    sample2: t.Sequence[t.Any],
+) -> float:
+    """Compute 1D first Wasserstein distance (Earth Mover's Distance) between two empirical distributions."""
+    s1 = _sanitize_numeric_sample(sample1)
+    s2 = _sanitize_numeric_sample(sample2)
+    if s1.size == 0 or s2.size == 0:
+        raise ValueError("Cannot compute Wasserstein distance on empty or non-finite sample.")
+
+    try:
+        from scipy.stats import wasserstein_distance
+
+        return float(wasserstein_distance(s1, s2))
+    except ImportError:
+        all_vals = np.sort(np.concatenate([s1, s2]))
+        deltas = np.diff(all_vals)
+        eval_points = all_vals[:-1]
+        cdf1 = np.searchsorted(np.sort(s1), eval_points, side="right") / len(s1)
+        cdf2 = np.searchsorted(np.sort(s2), eval_points, side="right") / len(s2)
+        return float(np.sum(np.abs(cdf1 - cdf2) * deltas))
+
+
+def compute_distribution_drift(
+    baseline_sample: t.Sequence[t.Any],
+    target_sample: t.Sequence[t.Any],
+    alpha: float = 0.05,
+) -> DistributionDriftResult:
+    """Evaluate continuous score distribution drift using two-sample KS and 1D Wasserstein metrics."""
+    if isinstance(alpha, bool) or not isinstance(alpha, (int, float)) or not (0.0 < alpha < 1.0):
+        raise ValueError(f"alpha must be a float strictly between 0 and 1, got {alpha!r}")
+
+    s1 = _sanitize_numeric_sample(baseline_sample)
+    s2 = _sanitize_numeric_sample(target_sample)
+    if s1.size < 2:
+        raise ValueError(f"baseline_sample must contain at least 2 valid numeric values, got {s1.size}")
+    if s2.size < 2:
+        raise ValueError(f"target_sample must contain at least 2 valid numeric values, got {s2.size}")
+
+    ks_stat, ks_pval = compute_ks_2sample(s1, s2)
+    w_dist = compute_wasserstein_1d(s1, s2)
+    is_drift = bool(ks_pval < alpha)
+
+    return DistributionDriftResult(
+        ks_statistic=ks_stat,
+        ks_p_value=ks_pval,
+        wasserstein_distance=w_dist,
+        sample1_size=int(s1.size),
+        sample2_size=int(s2.size),
+        is_drift_detected=is_drift,
+        alpha=float(alpha),
+    )
+

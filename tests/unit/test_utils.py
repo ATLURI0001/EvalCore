@@ -5,9 +5,13 @@ import tempfile
 import pytest
 
 from ragas.utils import (
+    DistributionDriftResult,
     async_to_sync,
     batched,
     check_if_sum_is_close,
+    compute_distribution_drift,
+    compute_ks_2sample,
+    compute_wasserstein_1d,
     convert_row_v1_to_v2,
     convert_row_v2_to_v1,
     create_nano_id,
@@ -363,4 +367,65 @@ class TestRowConversionAndGetOrInit:
     def test_get_required_columns_v1_safe_fallback(self):
         assert get_required_columns_v1(None) == []
         assert get_required_columns_v1(object()) == []
+
+
+class TestDistributionDriftMetrics:
+    def test_identical_distributions(self):
+        sample = [0.12, 0.45, 0.78, 0.92, 0.33, 0.55]
+        result = compute_distribution_drift(sample, sample, alpha=0.05)
+        assert isinstance(result, DistributionDriftResult)
+        assert result.ks_statistic == 0.0
+        assert result.ks_p_value == 1.0
+        assert result.wasserstein_distance == 0.0
+        assert result.sample1_size == len(sample)
+        assert result.sample2_size == len(sample)
+        assert not result.is_drift_detected
+        assert result.alpha == 0.05
+
+    def test_disjoint_distributions_detects_drift(self):
+        s1 = [0.1, 0.2, 0.15, 0.25, 0.18, 0.22]
+        s2 = [0.85, 0.9, 0.88, 0.95, 0.92, 0.89]
+        result = compute_distribution_drift(s1, s2, alpha=0.01)
+        assert result.ks_statistic == 1.0
+        assert result.ks_p_value < 0.01
+        assert result.wasserstein_distance > 0.6
+        assert result.is_drift_detected
+        assert result.alpha == 0.01
+
+    def test_sanitizes_nans_booleans_and_invalids(self):
+        s1 = [0.2, float("nan"), True, False, "invalid", None, 0.4, 0.6]
+        s2 = [0.25, 0.45, float("inf"), None, 0.65]
+        result = compute_distribution_drift(s1, s2)
+        assert result.sample1_size == 3  # [0.2, 0.4, 0.6]
+        assert result.sample2_size == 3  # [0.25, 0.45, 0.65]
+        assert 0.0 <= result.ks_statistic <= 1.0
+        assert 0.0 <= result.ks_p_value <= 1.0
+        assert result.wasserstein_distance >= 0.0
+
+    def test_insufficient_samples_raises(self):
+        with pytest.raises(ValueError, match="must contain at least 2 valid numeric values"):
+            compute_distribution_drift([1.0], [1.0, 2.0])
+
+        with pytest.raises(ValueError, match="must contain at least 2 valid numeric values"):
+            compute_distribution_drift([1.0, 2.0], [float("nan"), True])
+
+    def test_invalid_alpha_raises(self):
+        s = [1.0, 2.0, 3.0]
+        with pytest.raises(ValueError, match="alpha must be a float strictly between 0 and 1"):
+            compute_distribution_drift(s, s, alpha=0.0)
+
+        with pytest.raises(ValueError, match="alpha must be a float strictly between 0 and 1"):
+            compute_distribution_drift(s, s, alpha=1.0)
+
+        with pytest.raises(ValueError, match="alpha must be a float strictly between 0 and 1"):
+            compute_distribution_drift(s, s, alpha=True)
+
+    def test_standalone_ks_and_wasserstein(self):
+        ks_stat, ks_p = compute_ks_2sample([1.0, 2.0, 3.0], [2.0, 3.0, 4.0])
+        assert 0.0 <= ks_stat <= 1.0
+        assert 0.0 <= ks_p <= 1.0
+
+        w_dist = compute_wasserstein_1d([1.0, 2.0, 3.0], [2.0, 3.0, 4.0])
+        assert abs(w_dist - 1.0) < 1e-6
+
 
